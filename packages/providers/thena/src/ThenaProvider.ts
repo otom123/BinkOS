@@ -292,14 +292,14 @@ export class ThenaProvider extends BaseSwapProvider {
     return orderIds.map((id: any) => Number(id));
   }
 
-  private async checkValidOrderId(orderId: number) {
+  public async checkValidOrderId(orderId: number) {
     const currentTime = Math.floor(Date.now() / 1000);
     const order = await this.orbsContract.status(orderId);
     return Number(order) >= currentTime ? 1 : 0;
   }
 
-  private async cancelOrder(orderId: number) {
-    const tx = this.orbsContract.interface.encodeFunctionData('cancel(uint64)', [orderId]);
+  public async cancelOrder(orderId: number) {
+    const tx = await this.orbsContract.interface.encodeFunctionData('cancel(uint64)', [orderId]);
     return tx;
   }
 

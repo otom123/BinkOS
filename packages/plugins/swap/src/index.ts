@@ -5,3 +5,5 @@ export * from './ProviderRegistry';
 export * from './BaseSwapProvider';
 export * from './utils/tokenUtils';
 export * from './utils/networkUtils';
+export * from './GetLimitOrdersTool';
+export * from './CancelLimitOrdersTool';

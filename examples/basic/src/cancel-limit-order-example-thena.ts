@@ -158,24 +158,31 @@ async function main() {
   await agent.registerPlugin(swapPlugin);
   console.log('✓ Plugin registered\n');
 
-  // Example 1: sell 3 BINK to USDC at price 0.0015 on thena
-  console.log('🔌 Executing limit order...');
+  //   console.log(`Example 1: cancel limit orders [
+  //   154306, 154320,
+  //   154707, 154724,
+  //   154808, 154809,
+  //   154810, 154826
+  // ] via thena on bnb`);
+  //   const result1 = await agent.execute({
+  //     input: `
+  //      cancel limit orders [
+  //   154306, 154320,
+  //   154707, 154724,
+  //   154808, 154809,
+  //   154810, 154826
+  // ] via thena on bnb
+  //     `,
+  //   });
+  //   console.log('✓ cancel limit orders result:', result1, '\n');
 
-  console.log('Example 1:sell 0.1 BNB to USDC at price 700 via thena ');
-  const result1 = await agent.execute({
+  console.log(`Example 2: cancel limit order 154826 via thena on bnb`);
+  const result2 = await agent.execute({
     input: `
-     swap 0.085 WBNB to USDC at price 700 via thena 
-    `,
+       cancel limit order 154826 via thena on bnb
+      `,
   });
-  console.log('✓ limit order result:', result1, '\n');
-  // const result2 = await agent.invokeTool('swap', {
-  //   amount: '3',
-  //   limitPrice: 0.0015,
-  //   network: 'bnb',
-  //   from: 'BINK',
-  //   to: 'USDC',
-  // });
-  //console.log('✓ limit order result:', result2, '\n');
+  console.log('✓ cancel limit order result:', result2, '\n');
   // Get plugin information
   const registeredPlugin = agent.getPlugin('swap') as SwapPlugin;
 
