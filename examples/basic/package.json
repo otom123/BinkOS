@@ -23,7 +23,9 @@
     "transfer": "ts-node src/transfer-example.ts",
     "build": "tsc",
     "swap-jupiter": "ts-node src/swap-example-jupiter.ts",
-    "limit-order": "ts-node src/limit-order-example-thena.ts"
+    "limit-order": "ts-node src/limit-order-example-thena.ts",
+    "get-limit-order": "ts-node src/get-limit-order-example-thena.ts",
+    "cancel-limit-order": "ts-node src/cancel-limit-order-example-thena.ts"
   },
   "dependencies": {
     "@binkai/bink-provider": "workspace:*",

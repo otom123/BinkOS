@@ -17,7 +17,9 @@
     { "path": "../../packages/providers/deBridge" },
     { "path": "../../packages/providers/rpc" },
     { "path": "../../packages/plugins/wallet" },
-    { "path": "../../packages/plugins/staking" }
+    { "path": "../../packages/plugins/staking" },
+    { "path": "../../packages/providers/thena" },
+    { "path": "../../packages/providers/birdeye" }
   ],
   "include": ["src/**/*"]
 }
