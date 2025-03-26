@@ -304,12 +304,12 @@ export class ThenaProvider extends BaseSwapProvider {
       route: ['thena'],
       estimatedGas: routeData.gasEstimateValue,
       tx: {
-        to: params.limitPrice ? CONSTANTS.ORBS_ADDRESS : swapTransactionData.transaction.to,
-        data: params.limitPrice ? swapTransactionData : swapTransactionData.transaction.data,
-        value: params.limitPrice ? 0 : swapTransactionData.transaction.value,
+        to: params?.limitPrice ? CONSTANTS.ORBS_ADDRESS : swapTransactionData.transaction.to,
+        data: params?.limitPrice ? swapTransactionData : swapTransactionData.transaction.data,
+        value: params?.limitPrice ? 0 : swapTransactionData.transaction.value,
         gasLimit: ethers.parseUnits(CONSTANTS.DEFAULT_GAS_LIMIT, 'wei'),
         network: params.network,
-        spender: params.limitPrice ? walletAddress : swapTransactionData.transaction.to,
+        spender: params?.limitPrice ? walletAddress : swapTransactionData.transaction.to,
       },
     };
   }

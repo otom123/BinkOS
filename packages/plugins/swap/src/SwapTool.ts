@@ -321,11 +321,19 @@ export class SwapTool extends BaseTool {
                 });
 
                 // Wait for approval to be mined
-                await wrapReceipt.wait();
+                const wrapResult = await wrapReceipt.wait();
 
+                if (!wrapResult?.hash) {
+                  throw new Error(`Failed to wrap BNB to WBNB`);
+                }
                 // set wrap token address
                 swapParams.fromToken = WrapToken.WBNB;
                 isWrapToken = true;
+
+                onProgress?.({
+                  progress: 8,
+                  message: `Successfully wrapped BNB to WBNB`,
+                });
               }
 
               try {
@@ -555,26 +563,32 @@ export class SwapTool extends BaseTool {
           }
 
           // STEP 9: unwrap token if needed
-          if (swapParams?.limitPrice && swapParams.fromToken === WrapToken.WBNB && isWrapToken) {
-            onProgress?.({
-              progress: 90,
-              message: `Unwrapping WBNB to BNB`,
-            });
+          // if (swapParams?.limitPrice && swapParams.fromToken === WrapToken.WBNB && isWrapToken) {
+          //   const wallet = this.agent.getWallet();
+          //   userAddress = await wallet.getAddress(network);
+          //   onProgress?.({
+          //     progress: 90,
+          //     message: `Unwrapping WBNB to BNB`,
+          //   });
 
-            const unwrapTx = await selectedProvider.unwrapToken(
-              quote.toAmount.toString(),
-              WrapToken.WBNB,
-            );
-            const wallet = this.agent.getWallet();
-            const unwrapReceipt = await wallet.signAndSendTransaction(network, {
-              to: unwrapTx.to,
-              data: unwrapTx.data,
-              value: BigInt(unwrapTx.value),
-            });
+          //   const unwrapTx = await selectedProvider.unwrapToken(amount.toString(), userAddress);
 
-            // Wait for approval to be mined
-            await unwrapReceipt.wait();
-          }
+          //   const unwrapReceipt = await wallet.signAndSendTransaction(network, {
+          //     to: WrapToken.WBNB,
+          //     data: unwrapTx.data,
+          //     value: BigInt(0),
+          //     gasLimit: unwrapTx?.gasLimit || '85000',
+          //   });
+
+          //   // Wait for approval to be mined
+          //   const unwraptxh = await unwrapReceipt.wait();
+          //   if (unwraptxh?.hash) {
+          //     onProgress?.({
+          //       progress: 95,
+          //       message: `Successfully unwrapped WBNB to BNB. Transaction hash: ${unwraptxh?.hash}`,
+          //     });
+          //   }
+          // }
 
           try {
             // Clear token balance caches after successful swap
@@ -598,7 +612,7 @@ export class SwapTool extends BaseTool {
             toToken: quote.toToken,
             fromAmount: quote.fromAmount.toString(),
             toAmount: quote.toAmount.toString(),
-            transactionHash: finalReceipt.hash,
+            transactionHash: finalReceipt?.hash || '',
             priceImpact: quote.priceImpact,
             type: quote.type,
             network,
