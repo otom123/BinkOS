@@ -214,6 +214,9 @@ export class CancelLimitOrdersTool extends BaseTool {
                 throw new Error(`Failed to cancel order ${id}`);
               }
 
+              // const statusOrderId: any = await selectedProvider.getStatusOrderId(Number(155324));
+              // console.log('🚀 ~ SwapTool ~ createTool ~ statusOrderId:', statusOrderId);
+
               onProgress?.({
                 progress: 40 + Math.floor((i / orderIds.length) * 50) + 5,
                 message: `Signing transaction for order ${id}...`,

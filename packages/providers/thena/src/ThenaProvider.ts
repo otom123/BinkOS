@@ -282,6 +282,11 @@ export class ThenaProvider extends BaseSwapProvider {
     return { tx, to: CONSTANTS.ORBS_ADDRESS };
   }
 
+  private async getStatusOrderId(orderId: number) {
+    const order = await this.orbsContract.order(orderId);
+    return order;
+  }
+
   private createSwapQuote(
     params: SwapParams,
     sourceToken: Token,

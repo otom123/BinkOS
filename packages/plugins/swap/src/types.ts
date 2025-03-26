@@ -175,4 +175,6 @@ export interface ILimitOrderProvider extends ISwapProvider {
    * @returns Promise<boolean> Whether the order ID is valid
    */
   checkValidOrderId(orderId: number): Promise<boolean>;
+
+  getStatusOrderId(orderId: number): Promise<any>;
 }
