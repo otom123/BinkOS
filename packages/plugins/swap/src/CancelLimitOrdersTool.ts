@@ -193,6 +193,16 @@ export class CancelLimitOrdersTool extends BaseTool {
             for (const id of orderIds) {
               //convert id to number
               const cancelResult = await selectedProvider.cancelOrder(Number(id));
+              console.log('🚀 ~ CancelLimitOrdersTool ~ createTool ~ cancelResult:', cancelResult);
+              const wallet = this.agent.getWallet();
+              const cancelReceipt = await wallet.signAndSendTransaction(network, {
+                to: '0x25a0A78f5ad07b2474D3D42F1c1432178465936d',
+                data: cancelResult as any,
+                value: 0n,
+              });
+              // Wait for approval to be mined
+              await cancelReceipt.wait();
+
               cancelResults.push({
                 orderId: id,
                 success: cancelResult.success,
