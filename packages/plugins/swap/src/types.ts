@@ -167,7 +167,10 @@ export interface ILimitOrderProvider extends ISwapProvider {
   cancelOrder(orderId: number): Promise<{
     success: boolean;
     message: string;
-    details?: any;
+    details?: {
+      tx: string;
+      to: string;
+    };
   }>;
 
   /**

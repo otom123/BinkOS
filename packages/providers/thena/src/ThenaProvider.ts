@@ -5,7 +5,7 @@ import { OrbsABI } from './abis/Orbs';
 import { WrapTokenABI } from './abis/WrapToken';
 
 // Core system constants
-const CONSTANTS = {
+export const CONSTANTS = {
   DEFAULT_GAS_LIMIT: '350000',
   APPROVE_GAS_LIMIT: '50000',
   QUOTE_EXPIRY: 5 * 60 * 1000, // 5 minutes in milliseconds
@@ -297,7 +297,7 @@ export class ThenaProvider extends BaseSwapProvider {
 
   private cancelOrder(orderId: number) {
     const tx = this.orbsContract.interface.encodeFunctionData('cancel(uint64)', [orderId]);
-    return tx;
+    return { tx, to: CONSTANTS.ORBS_ADDRESS };
   }
 
   private createSwapQuote(
