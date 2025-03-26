@@ -125,7 +125,7 @@ export class CancelLimitOrdersTool extends BaseTool {
           console.log('🤖 Args:', args);
 
           onProgress?.({
-            progress: 10,
+            progress: 5,
             message: 'Preparing to cancel your limit orders...',
           });
 
@@ -149,9 +149,19 @@ export class CancelLimitOrdersTool extends BaseTool {
             networksToQuery = [network];
           }
 
+          onProgress?.({
+            progress: 15,
+            message: 'Validating network and retrieving wallet information...',
+          });
+
           // Get wallet address for each network
           let wallet = this.agent.getWallet();
           let userAddress = await wallet.getAddress(network);
+
+          onProgress?.({
+            progress: 25,
+            message: 'Selecting appropriate provider for cancellation...',
+          });
 
           // Initialize selectedProvider with a default provider that supports canceling limit orders
           let selectedProvider: ILimitOrderProvider;
@@ -176,10 +186,10 @@ export class CancelLimitOrdersTool extends BaseTool {
           }
 
           onProgress?.({
-            progress: 50,
+            progress: 40,
             message: orderId
-              ? `Canceling specified order(s)...`
-              : 'Canceling all pending orders...',
+              ? `Preparing to cancel specified order(s)...`
+              : 'Preparing to cancel all pending orders...',
           });
 
           // Cancel specific order(s) or all orders
@@ -190,14 +200,26 @@ export class CancelLimitOrdersTool extends BaseTool {
 
             // Cancel each specified order
             const cancelResults = [];
-            for (const id of orderIds) {
+            for (let i = 0; i < orderIds.length; i++) {
+              const id = orderIds[i];
+
+              onProgress?.({
+                progress: 40 + Math.floor((i / orderIds.length) * 50),
+                message: `Canceling order ${id} (${i + 1}/${orderIds.length})...`,
+              });
+
               //convert id to number
-              const cancelResult = await selectedProvider.cancelOrder(Number(id));
-              if (!cancelResult.details) {
-                throw new Error(`Failed to cancel order ${id}: ${cancelResult.message}`);
+              const cancelResult: any = await selectedProvider.cancelOrder(Number(id));
+              if (!cancelResult?.tx) {
+                throw new Error(`Failed to cancel order ${id}`);
               }
-              const { tx, to } = cancelResult.details;
-              console.log('🚀 ~ CancelLimitOrdersTool ~ createTool ~ cancelResult:', tx, to);
+
+              onProgress?.({
+                progress: 40 + Math.floor((i / orderIds.length) * 50) + 5,
+                message: `Signing transaction for order ${id}...`,
+              });
+
+              const { tx, to } = cancelResult;
               const wallet = this.agent.getWallet();
               const cancelReceipt = await wallet.signAndSendTransaction(network, {
                 to: to,
@@ -205,12 +227,17 @@ export class CancelLimitOrdersTool extends BaseTool {
                 value: 0n,
               });
 
+              onProgress?.({
+                progress: 40 + Math.floor((i / orderIds.length) * 50) + 10,
+                message: `Waiting for transaction confirmation for order ${id}...`,
+              });
+
               await cancelReceipt.wait();
 
               cancelResults.push({
                 orderId: id,
-                success: cancelResult.success,
-                message: cancelResult.message,
+                success: true,
+                message: 'Order canceled successfully',
               });
             }
 
@@ -222,22 +249,28 @@ export class CancelLimitOrdersTool extends BaseTool {
           }
 
           onProgress?.({
+            progress: 95,
+            message: 'Finalizing cancellation process...',
+          });
+
+          onProgress?.({
             progress: 100,
-            message: result?.success
-              ? 'Successfully canceled orders.'
-              : 'Some orders could not be canceled.',
+            message: 'Successfully canceled orders.',
           });
 
           // Return result as JSON string
           return JSON.stringify({
-            status: result?.success ? 'success' : 'partial',
-            message: result?.message,
+            status: 'success',
+            message: 'Successfully canceled orders.',
             details: result?.details || {},
             network: network,
           });
         } catch (error: any) {
-          console.error('Cancel limit orders error:', error);
-          // return this.handleError(error, args);
+          onProgress?.({
+            progress: 100,
+            message: `Error: ${error instanceof Error ? error.message : 'Unknown error occurred'}`,
+          });
+
           return JSON.stringify({
             status: 'error',
             message: error instanceof Error ? error.message : 'Unknown error occurred',

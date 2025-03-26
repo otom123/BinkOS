@@ -161,10 +161,10 @@ async function main() {
   // Example 1: sell 3 BINK to USDC at price 0.0015 on thena
   console.log('🔌 Executing limit order...');
 
-  console.log('Example 1:sell 0.1 BNB to USDC at price 700 via thena ');
+  console.log('Example 1:sell 0.02 BNB to USDC at price 700 via thena ');
   const result1 = await agent.execute({
     input: `
-     swap 0.01 BNB to USDC at price 610 BNB via thena 
+     swap 0.02 BNB to USDC at price 700 via thena 
     `,
   });
   console.log('✓ limit order result:', result1, '\n');

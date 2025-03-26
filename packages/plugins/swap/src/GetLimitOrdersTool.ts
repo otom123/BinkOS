@@ -122,8 +122,8 @@ export class GetLimitOrdersTool extends BaseTool {
           console.log('🤖 Args:', args);
 
           onProgress?.({
-            progress: 10,
-            message: 'Retrieving your limit orders...',
+            progress: 5,
+            message: 'Initializing limit order retrieval...',
           });
 
           // Determine which networks to query
@@ -146,9 +146,19 @@ export class GetLimitOrdersTool extends BaseTool {
             networksToQuery = [network];
           }
 
+          onProgress?.({
+            progress: 20,
+            message: 'Validating network and retrieving wallet information...',
+          });
+
           // Get wallet address for each network
           let wallet = this.agent.getWallet();
           let userAddress = await wallet.getAddress(network);
+
+          onProgress?.({
+            progress: 35,
+            message: 'Selecting appropriate provider for order retrieval...',
+          });
 
           // Initialize selectedProvider with a default provider that supports limit orders
           let selectedProvider: ILimitOrderProvider;
@@ -172,16 +182,39 @@ export class GetLimitOrdersTool extends BaseTool {
             selectedProvider = limitOrderProviders[0];
           }
 
+          onProgress?.({
+            progress: 50,
+            message: 'Fetching all order IDs from provider...',
+          });
+
           // Retrieve orders from each network and provider
           const allOrders = await selectedProvider.getAllOrderIds(userAddress);
           console.log('🤖 All orders:', allOrders);
 
+          onProgress?.({
+            progress: 70,
+            message: `Found ${allOrders.length} orders. Validating each order...`,
+          });
+
+          // Validate each order
+          let validatedCount = 0;
           const validOrders = await Promise.all(
-            allOrders.map(async orderId => {
+            allOrders.map(async (orderId, index) => {
+              onProgress?.({
+                progress: 70 + Math.floor((index / allOrders.length) * 25),
+                message: `Validating order ${index + 1}/${allOrders.length}...`,
+              });
+
               const isValid = await selectedProvider.checkValidOrderId(orderId);
+              validatedCount += isValid ? 1 : 0;
               return isValid ? orderId : null;
             }),
-          );
+          ).then(orders => orders.filter(Boolean));
+
+          onProgress?.({
+            progress: 95,
+            message: 'Finalizing order data...',
+          });
 
           onProgress?.({
             progress: 100,
@@ -197,8 +230,16 @@ export class GetLimitOrdersTool extends BaseTool {
           });
         } catch (error: any) {
           console.error('Get limit orders error:', error);
-          // return this.handleError(error, args);
-          return 'Error';
+
+          onProgress?.({
+            progress: 100,
+            message: `Error: ${error instanceof Error ? error.message : 'Unknown error occurred'}`,
+          });
+
+          return JSON.stringify({
+            status: 'error',
+            message: error instanceof Error ? error.message : 'Unknown error occurred',
+          });
         }
       },
     };
