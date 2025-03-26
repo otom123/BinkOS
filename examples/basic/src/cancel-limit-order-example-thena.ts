@@ -176,10 +176,10 @@ async function main() {
   //   });
   //   console.log('✓ cancel limit orders result:', result1, '\n');
 
-  console.log(`Example 2: cancel limit order 154826 via thena on bnb`);
+  console.log(`Example 2: cancel limit order 155275 via thena on bnb`);
   const result2 = await agent.execute({
     input: `
-       cancel limit order 154826 via thena on bnb
+       cancel limit order 155275 via thena on bnb
       `,
   });
   console.log('✓ cancel limit order result:', result2, '\n');

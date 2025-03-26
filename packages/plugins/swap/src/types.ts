@@ -162,15 +162,11 @@ export interface ILimitOrderProvider extends ISwapProvider {
   /**
    * Cancel a specific limit order
    * @param orderId The ID of the order to cancel
-   * @returns Promise with success status, message and optional details
+   * @returns Promise with tx and to
    */
   cancelOrder(orderId: number): Promise<{
-    success: boolean;
-    message: string;
-    details?: {
-      tx: string;
-      to: string;
-    };
+    tx: string;
+    to: string;
   }>;
 
   /**
