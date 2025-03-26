@@ -111,13 +111,19 @@ export function formatTokenAmount(amount: bigint, decimals: number): string {
  * @param decimals The token decimals
  * @returns The parsed amount as a BigInt
  */
-export function parseTokenAmount(amount: string, decimals: number): bigint {
+export function parseTokenAmount(amount: any, decimals: number): bigint {
   try {
-    // Handle edge cases
+    // If amount is already a bigint, return it directly
+    if (typeof amount === 'bigint') return amount;
+
+    // Handle edge cases for string amounts
     if (!amount || amount === '0') return BigInt(0);
 
+    // Convert to string if it's not already
+    const amountStr = String(amount);
+
     // Check if the amount has more decimal places than allowed
-    const parts = amount.split('.');
+    const parts = amountStr.split('.');
     if (parts.length === 2 && parts[1].length > decimals) {
       // Truncate the excess decimal places
       const truncatedAmount = `${parts[0]}.${parts[1].substring(0, decimals)}`;
@@ -125,7 +131,7 @@ export function parseTokenAmount(amount: string, decimals: number): bigint {
     }
 
     // Normal case - use ethers.parseUnits directly
-    return ethers.parseUnits(amount, decimals);
+    return ethers.parseUnits(amountStr, decimals);
   } catch (error) {
     console.error('Error parsing token amount:', error);
     // In case of any error, return zero

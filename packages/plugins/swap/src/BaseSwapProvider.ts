@@ -620,7 +620,7 @@ export abstract class BaseSwapProvider implements ISwapProvider {
     }, CLEANUP_INTERVAL);
   }
 
-  async wrapToken(amount: string, tokenAddress: string): Promise<any> {
+  async wrapToken(amount: any, tokenAddress: string): Promise<any> {
     // Create interface for wrapped token contract
     const wrapInterface = new Interface(['function deposit() payable returns ()']);
 
@@ -636,7 +636,7 @@ export abstract class BaseSwapProvider implements ISwapProvider {
     };
   }
 
-  async unwrapToken(amount: string, walletAddress: string): Promise<any> {
+  async unwrapToken(amount: any, walletAddress: string): Promise<any> {
     // Create interface for wrapped token contract
     const wrapInterface = new Interface(['function withdraw(uint256 wad) returns ()']);
 

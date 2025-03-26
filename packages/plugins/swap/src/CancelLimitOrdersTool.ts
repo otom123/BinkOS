@@ -7,7 +7,7 @@ import {
   ToolProgress,
 } from '@binkai/core';
 import { ProviderRegistry } from './ProviderRegistry';
-import { ILimitOrderProvider } from './types';
+import { ILimitOrderProvider, WrapToken } from './types';
 
 export interface CancelLimitOrdersToolConfig extends IToolConfig {
   defaultNetwork?: string;
@@ -126,7 +126,7 @@ export class CancelLimitOrdersTool extends BaseTool {
 
           onProgress?.({
             progress: 5,
-            message: 'Preparing to cancel your limit orders...',
+            message: 'Initializing order cancellation process...',
           });
 
           // Determine which networks to query
@@ -160,7 +160,7 @@ export class CancelLimitOrdersTool extends BaseTool {
 
           onProgress?.({
             progress: 25,
-            message: 'Selecting appropriate provider for cancellation...',
+            message: 'Selecting appropriate provider for your orders...',
           });
 
           // Initialize selectedProvider with a default provider that supports canceling limit orders
@@ -188,8 +188,8 @@ export class CancelLimitOrdersTool extends BaseTool {
           onProgress?.({
             progress: 40,
             message: orderId
-              ? `Preparing to cancel specified order(s)...`
-              : 'Preparing to cancel all pending orders...',
+              ? `Preparing to cancel ${Array.isArray(orderId) ? orderId.length : 1} specific order(s)...`
+              : 'Preparing to cancel all your pending orders...',
           });
 
           // Cancel specific order(s) or all orders
@@ -199,12 +199,12 @@ export class CancelLimitOrdersTool extends BaseTool {
             const orderIds = Array.isArray(orderId) ? orderId : [orderId];
 
             // Cancel each specified order
-            const cancelResults = [];
+            const cancelResults: any[] = [];
             for (let i = 0; i < orderIds.length; i++) {
               const id = orderIds[i];
 
               onProgress?.({
-                progress: 40 + Math.floor((i / orderIds.length) * 50),
+                progress: 40 + Math.floor((i / orderIds.length) * 40),
                 message: `Canceling order ${id} (${i + 1}/${orderIds.length})...`,
               });
 
@@ -214,16 +214,14 @@ export class CancelLimitOrdersTool extends BaseTool {
                 throw new Error(`Failed to cancel order ${id}`);
               }
 
-              // const statusOrderId: any = await selectedProvider.getStatusOrderId(Number(155324));
-              // console.log('🚀 ~ SwapTool ~ createTool ~ statusOrderId:', statusOrderId);
+              const statusOrderId: any = await selectedProvider.getStatusOrderId(Number(id));
 
               onProgress?.({
-                progress: 40 + Math.floor((i / orderIds.length) * 50) + 5,
+                progress: 80 + Math.floor((i / orderIds.length) * 10),
                 message: `Signing transaction for order ${id}...`,
               });
 
               const { tx, to } = cancelResult;
-              const wallet = this.agent.getWallet();
               const cancelReceipt = await wallet.signAndSendTransaction(network, {
                 to: to,
                 data: tx as any,
@@ -231,11 +229,37 @@ export class CancelLimitOrdersTool extends BaseTool {
               });
 
               onProgress?.({
-                progress: 40 + Math.floor((i / orderIds.length) * 50) + 10,
-                message: `Waiting for transaction confirmation for order ${id}...`,
+                progress: 90 + Math.floor((i / orderIds.length) * 5),
+                message: `Confirming transaction for order ${id}...`,
               });
 
               await cancelReceipt.wait();
+
+              onProgress?.({
+                progress: 95,
+                message: `Unwrapping WBNB to BNB...`,
+              });
+
+              //unwrap token if needed
+              userAddress = await wallet.getAddress(network);
+              const amount = statusOrderId[6][4];
+              const unwrapTx = await selectedProvider.unwrapToken(amount, userAddress);
+
+              const unwrapReceipt = await wallet.signAndSendTransaction(network, {
+                to: WrapToken.WBNB,
+                data: unwrapTx.data,
+                value: BigInt(0),
+                gasLimit: unwrapTx?.gasLimit || '85000',
+              });
+
+              // Wait for approval to be mined
+              const unwraptxh = await unwrapReceipt.wait();
+              if (unwraptxh?.hash) {
+                onProgress?.({
+                  progress: 97,
+                  message: `Successfully unwrapped WBNB to BNB`,
+                });
+              }
 
               cancelResults.push({
                 orderId: id,
@@ -252,13 +276,13 @@ export class CancelLimitOrdersTool extends BaseTool {
           }
 
           onProgress?.({
-            progress: 95,
+            progress: 99,
             message: 'Finalizing cancellation process...',
           });
 
           onProgress?.({
             progress: 100,
-            message: 'Successfully canceled orders.',
+            message: 'Order cancellation completed successfully!',
           });
 
           // Return result as JSON string
@@ -271,7 +295,7 @@ export class CancelLimitOrdersTool extends BaseTool {
         } catch (error: any) {
           onProgress?.({
             progress: 100,
-            message: `Error: ${error instanceof Error ? error.message : 'Unknown error occurred'}`,
+            message: `Error: ${error instanceof Error ? error.message : 'An unexpected error occurred'}`,
           });
 
           return JSON.stringify({
