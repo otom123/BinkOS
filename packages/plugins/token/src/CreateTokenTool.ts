@@ -156,14 +156,7 @@ export class CreateTokenTool extends BaseTool {
             const wallet = this.agent.getWallet();
             userAddress = await wallet.getAddress(network);
           } catch (error: any) {
-            throw this.createError(
-              ErrorStep.WALLET_ACCESS,
-              `Failed to get wallet address for network ${network}.`,
-              {
-                network: network,
-                error: error instanceof Error ? error.message : String(error),
-              },
-            );
+            throw error;
           }
 
           const createTokenParams: CreateTokenParams = {
@@ -221,15 +214,7 @@ export class CreateTokenTool extends BaseTool {
               message: signatureMessage,
             });
           } catch (error: any) {
-            throw this.createError(
-              ErrorStep.TOOL_EXECUTION,
-              `Failed to build the signature message.`,
-              {
-                provider: selectedProvider.getName(),
-                network: network,
-                error: error instanceof Error ? error.message : String(error),
-              },
-            );
+            throw error;
           }
           onProgress?.({
             progress: 60,
@@ -248,16 +233,7 @@ export class CreateTokenTool extends BaseTool {
             );
             console.log('🤖 Create Tx:', tx);
           } catch (error: any) {
-            throw this.createError(
-              ErrorStep.TOOL_EXECUTION,
-              `Failed to build the create transaction.`,
-              {
-                provider: selectedProvider.getName(),
-                network: network,
-                token: tx.token.symbol || '',
-                error: error instanceof Error ? error.message : String(error),
-              },
-            );
+            throw error;
           }
 
           onProgress?.({
@@ -279,14 +255,7 @@ export class CreateTokenTool extends BaseTool {
             // Wait for transaction to be mined
             finalReceipt = await receipt?.wait();
           } catch (error: any) {
-            throw this.createError(
-              ErrorStep.TOOL_EXECUTION,
-              `Failed to execute the create transaction.`,
-              {
-                network: network,
-                error: error instanceof Error ? error.message : String(error),
-              },
-            );
+            throw error;
           }
 
           // STEP 7: Get token info

@@ -256,14 +256,7 @@ export class SwapTool extends BaseTool {
             const wallet = this.agent.getWallet();
             userAddress = await wallet.getAddress(network);
           } catch (error: any) {
-            throw this.createError(
-              ErrorStep.WALLET_ACCESS,
-              `Failed to get wallet address for network ${network}.`,
-              {
-                network: network,
-                error: error instanceof Error ? error.message : String(error),
-              },
-            );
+            throw error;
           }
 
           const swapParams: SwapParams = {
@@ -339,17 +332,7 @@ export class SwapTool extends BaseTool {
               try {
                 quote = await selectedProvider.getQuote(swapParams, userAddress);
               } catch (error: any) {
-                throw this.createError(
-                  ErrorStep.PRICE_RETRIEVAL,
-                  `Failed to get quote from provider ${preferredProvider}.`,
-                  {
-                    provider: preferredProvider,
-                    network: network,
-                    fromToken: fromToken,
-                    toToken: toToken,
-                    error: error instanceof Error ? error.message : String(error),
-                  },
-                );
+                throw error;
               }
             } else {
               try {
@@ -363,34 +346,13 @@ export class SwapTool extends BaseTool {
                 selectedProvider = bestQuote.provider;
                 quote = bestQuote.quote;
               } catch (error: any) {
-                throw this.createError(
-                  ErrorStep.PRICE_RETRIEVAL,
-                  `Failed to find any valid quotes for your swap.`,
-                  {
-                    network: network,
-                    fromToken: fromToken,
-                    toToken: toToken,
-                    error: error instanceof Error ? error.message : String(error),
-                  },
-                );
+                throw error;
               }
             }
           } catch (error: any) {
-            if ('step' in error) {
-              throw error; // Re-throw structured errors
-            }
 
             console.warn(`Failed to get quote:`, error);
-            throw this.createError(
-              ErrorStep.PRICE_RETRIEVAL,
-              `Failed to get a quote for your swap.`,
-              {
-                network: network,
-                fromToken: fromToken,
-                toToken: toToken,
-                error: error instanceof Error ? error.message : String(error),
-              },
-            );
+            throw error;
           }
 
           console.log('🤖 The selected provider is:', selectedProvider.getName());
@@ -404,32 +366,12 @@ export class SwapTool extends BaseTool {
           try {
             const balanceCheck = await selectedProvider.checkBalance(quote, userAddress);
             if (!balanceCheck.isValid) {
-              throw this.createError(
-                ErrorStep.DATA_RETRIEVAL,
-                balanceCheck.message || 'Insufficient balance for swap',
-                {
-                  network: network,
-                  fromToken: quote.fromToken.symbol || fromToken,
-                  requiredAmount: quote.fromAmount,
-                  userAddress: userAddress,
-                },
-              );
+              throw 'Not valid checking balance';
             }
           } catch (error: any) {
-            if ('step' in error) {
-              throw error; // Re-throw structured errors
-            }
-
-            throw this.createError(
-              ErrorStep.DATA_RETRIEVAL,
-              `Failed to verify your token balance.`,
-              {
-                network: network,
-                fromToken: quote.fromToken.symbol || fromToken,
-                error: error instanceof Error ? error.message : String(error),
-              },
-            );
+            throw error; // Re-throw structured errors
           }
+
 
           onProgress?.({
             progress: 20,
@@ -441,17 +383,7 @@ export class SwapTool extends BaseTool {
           try {
             swapTx = await selectedProvider.buildSwapTransaction(quote, userAddress);
           } catch (error: any) {
-            throw this.createError(
-              ErrorStep.TOOL_EXECUTION,
-              `Failed to build the swap transaction.`,
-              {
-                provider: selectedProvider.getName(),
-                network: network,
-                fromToken: quote.fromToken.symbol || fromToken,
-                toToken: quote.toToken.symbol || toToken,
-                error: error instanceof Error ? error.message : String(error),
-              },
-            );
+            throw error;
           }
 
           onProgress?.({
@@ -502,28 +434,11 @@ export class SwapTool extends BaseTool {
                   // Wait for approval to be mined
                   await approveReceipt.wait();
                 } catch (error: any) {
-                  throw this.createError(
-                    ErrorStep.TOOL_EXECUTION,
-                    `Failed to approve token spending.`,
-                    {
-                      network: network,
-                      fromToken: quote.fromToken.symbol || fromToken,
-                      spender: swapTx.spender,
-                      error: error instanceof Error ? error.message : String(error),
-                    },
-                  );
+                  throw error;
                 }
               }
             } catch (error: any) {
-              if ('step' in error) {
-                throw error; // Re-throw structured errors
-              }
-
-              throw this.createError(ErrorStep.TOOL_EXECUTION, `Failed to check token allowance.`, {
-                network: network,
-                fromToken: quote.fromToken.symbol || fromToken,
-                error: error instanceof Error ? error.message : String(error),
-              });
+              throw error; // Re-throw structured errors
             }
           }
 
@@ -550,16 +465,7 @@ export class SwapTool extends BaseTool {
             // Wait for transaction to be mined
             finalReceipt = await receipt?.wait();
           } catch (error: any) {
-            throw this.createError(
-              ErrorStep.TOOL_EXECUTION,
-              `Failed to execute the swap transaction.`,
-              {
-                network: network,
-                fromToken: quote.fromToken.symbol || fromToken,
-                toToken: quote.toToken.symbol || toToken,
-                error: error instanceof Error ? error.message : String(error),
-              },
-            );
+            throw error;
           }
 
           // STEP 9: unwrap token if needed
@@ -597,6 +503,7 @@ export class SwapTool extends BaseTool {
           } catch (error: any) {
             console.error('Error clearing token balance caches:', error);
             // Non-critical error, don't throw
+            
           }
 
           onProgress?.({

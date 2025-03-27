@@ -426,17 +426,8 @@ export class GetTokenInfoTool extends BaseTool {
               tokenInfo = await provider.getTokenInfo({ query, network, includePrice });
               console.log(`✅ Found token info from ${preferredProvider}`);
             } catch (error: any) {
-              console.error(`❌ Provider ${preferredProvider} could not find token "${query}"`);
-              throw this.createError(
-                ErrorStep.TOKEN_NOT_FOUND,
-                `Provider ${preferredProvider} could not find token "${query}" on network ${network}.`,
-                {
-                  query: query,
-                  network: network,
-                  provider: preferredProvider,
-                  error: error instanceof Error ? error.message : String(error),
-                }
-              );
+              console.error(`❌ Provider ${preferredProvider} error: ${error}`);
+              throw error;
             }
 
             // STEP 4: Handle price retrieval if needed
@@ -479,17 +470,8 @@ export class GetTokenInfoTool extends BaseTool {
               });
               console.log(`✅ Found token info for ${query}`);
             } catch (error: any) {
-              console.error(`❌ Could not find token "${query}" on network ${network}`);
-              throw this.createError(
-                ErrorStep.TOKEN_NOT_FOUND,
-                `Could not find token "${query}" on network ${network} using any provider.`,
-                {
-                  query: query,
-                  network: network,
-                  providers: this.registry.getProvidersByNetwork(network).map(p => p.getName()),
-                  error: error instanceof Error ? error.message : String(error),
-                }
-              );
+              console.error(`❌ Token tool error: ${error}`);
+              throw error;
             }
           }
 
