@@ -1,5 +1,5 @@
 {
-  "name": "@binkai/postgres-adapter",
+  "name": "@binkai/model-context-protocol",
   "version": "0.2.7-alpha.3",
   "main": "dist/index.js",
   "module": "dist/index.js",
@@ -15,7 +15,8 @@
     "@binkai/core": "workspace:*",
     "@types/pg": "8.11.10",
     "pg": "8.13.1",
-    "uuid": "^9.0.0"
+    "uuid": "^9.0.0",
+    "@modelcontextprotocol/sdk": "^1.5.0"
   },
   "devDependencies": {
     "@types/jest": "^29.5.14",

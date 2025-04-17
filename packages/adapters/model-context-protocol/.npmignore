@@ -1,0 +1,8 @@
+*
+
+!dist/**
+!package.json
+!readme.md
+!tsup.config.ts
+!migration.sql
+!seed.sql

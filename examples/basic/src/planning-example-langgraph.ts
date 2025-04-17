@@ -255,7 +255,7 @@ async function main() {
   console.log('✓ Swap plugin initialized\n');
 
   // Create providers with proper chain IDs
-  const debridge = new deBridgeProvider(provider);
+  const debridge = new deBridgeProvider([provider, solanaProvider], 7565164);
 
   const imagePlugin = new ImagePlugin();
   // Configure the plugin with supported chains
@@ -338,4 +338,4 @@ async function main() {
 //   process.exit(1);
 // });
 
-export const graph = main();
+export const graph = main() as any;

@@ -166,7 +166,7 @@ async function main() {
 
   const bridgePlugin = new BridgePlugin();
 
-  const debridge = new deBridgeProvider(bnb_provider, 56, 7565164);
+  const debridge = new deBridgeProvider([bnb_provider, sol_provider], 7565164);
 
   // Configure the plugin with supported chains
   await bridgePlugin.initialize({

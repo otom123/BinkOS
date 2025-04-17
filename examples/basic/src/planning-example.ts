@@ -223,7 +223,7 @@ async function main() {
   console.log('✓ Swap plugin initialized\n');
 
   // Create providers with proper chain IDs
-  const debridge = new deBridgeProvider(provider);
+  const debridge = new deBridgeProvider([provider, solanaProvider]);
   // Configure the plugin with supported chains
   await bridgePlugin.initialize({
     defaultChain: 'bnb',
