@@ -13,6 +13,8 @@
   },
   "dependencies": {
     "@binkai/core": "workspace:*",
+    "@binkai/swap-plugin": "workspace:*",
+    "@binkai/jupiter-provider": "workspace:*",
     "@types/pg": "8.11.10",
     "pg": "8.13.1",
     "uuid": "^9.0.0",
