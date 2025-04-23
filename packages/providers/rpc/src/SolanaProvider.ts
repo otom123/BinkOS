@@ -15,14 +15,11 @@ import {
   Token,
 } from '@binkai/core';
 import { Metaplex } from '@metaplex-foundation/js';
-import { GAS_BUFFER } from './types';
 import { ethers } from 'ethers';
 import {
   createAssociatedTokenAccountInstruction,
   createTransferCheckedInstruction,
-  createTransferInstruction,
   getAssociatedTokenAddress,
-  TOKEN_PROGRAM_ID,
 } from '@solana/spl-token';
 interface SolanaProviderConfig {
   rpcUrl?: string;
@@ -30,6 +27,7 @@ interface SolanaProviderConfig {
 
 const CONSTANTS = {
   QUOTE_EXPIRY: 10 * 60 * 1000, // 10 minutes in milliseconds
+  GAS_COST: 0.005,
 } as const;
 
 export class SolanaProvider implements IWalletProvider {
@@ -97,6 +95,52 @@ export class SolanaProvider implements IWalletProvider {
     };
   }
 
+  /**
+   * Adjusts the amount for native token transfers to account for gas costs
+   * @param tokenAddress The address of the token being transferred
+   * @param amount The original amount to transfer
+   * @param userAddress The address of the user making the transfer
+   * @param network The network on which the transfer is happening
+   * @returns The adjusted amount after accounting for gas costs
+   */
+  async adjustAmount(
+    tokenAddress: string,
+    amount: string,
+    userAddress: string,
+    network: NetworkName,
+  ): Promise<string> {
+    // Only adjust for native token transfers
+    if (!this.isNativeSolana(tokenAddress)) {
+      return amount;
+    }
+    try {
+      // Get user's balance
+      const balance = await this.connection.getBalance(new PublicKey(userAddress));
+      const amountBigInt = ethers.parseUnits(amount, 9);
+
+      const gasCost = ethers.parseUnits(CONSTANTS.GAS_COST.toString(), 9);
+
+      // If balance is less than amount + gas, adjust the amount
+      if (balance < amountBigInt + gasCost) {
+        // If we don't have enough for even gas, return 0
+        if (balance <= gasCost) {
+          return '0';
+        }
+
+        // Otherwise, subtract gas cost from balance to get max sendable amount
+        const adjustedAmount = balance - Number(gasCost);
+        return ethers.formatUnits(adjustedAmount, 9);
+      }
+
+      // If we have enough balance, no adjustment needed
+      return amount;
+    } catch (error) {
+      console.error('Error adjusting amount:', error);
+      // In case of error, return original amount
+      return amount;
+    }
+  }
+
   async getQuote(params: TransferParams, walletAddress: string): Promise<TransferQuote> {
     this.validateNetwork(params.network);
     let token;
@@ -114,6 +158,14 @@ export class SolanaProvider implements IWalletProvider {
         this.getName(),
       );
     }
+
+    // Adjust amount for native token transfers
+    let adjustedAmount = await this.adjustAmount(
+      params.token,
+      params.amount,
+      walletAddress,
+      params.network,
+    );
     // Generate a unique quote ID
     const quoteId = Math.random().toString(36).substring(2);
 
@@ -124,7 +176,7 @@ export class SolanaProvider implements IWalletProvider {
       token,
       fromAddress: walletAddress,
       toAddress: params.toAddress,
-      amount: params.amount,
+      amount: adjustedAmount,
       estimatedGas: '5000', // Solana has fixed transaction cost
     };
 
@@ -305,17 +357,28 @@ export class SolanaProvider implements IWalletProvider {
       if (this.isNativeSolana(quote.token.address)) {
         balance = await this.connection.getBalance(walletPublicKey);
 
-        const requiredAmount =
-          Number(parseTokenAmount(quote.amount, quote.token.decimals)) +
-          Number(GAS_BUFFER[NetworkName.SOLANA]);
+        // Parse the required amount using the token's decimals
+        const requiredAmount = ethers.parseUnits(quote.amount, quote.token.decimals);
 
-        if (balance < requiredAmount) {
-          // Account for transaction fee
+        // Check if we need to account for gas costs for native token transfers
+        let effectiveBalance = balance;
+        if (this.isNativeSolana(quote.token.address)) {
+          // For native token transfers, we need to ensure there's enough for the transfer amount plus gas
+          const gasLimit = ethers.parseUnits(CONSTANTS.GAS_COST.toString(), quote.token.decimals);
+          effectiveBalance = balance - Number(gasLimit);
+          if (effectiveBalance < 0) effectiveBalance = 0;
+        }
+
+        if (effectiveBalance < requiredAmount) {
           return {
             isValid: false,
-            message: `Insufficient balance. Required: ${quote.amount} SOL (+ fees), Available: ${requiredAmount} SOL`,
+            message: `Insufficient SOL balance. Required: ${quote.amount} ${quote.token.symbol}, Available: ${ethers.formatUnits(balance, quote.token.decimals)} ${quote.token.symbol}${
+              this.isNativeSolana(quote.token.address) ? ' (gas costs will be deducted)' : ''
+            }`,
           };
         }
+
+        return { isValid: true };
       } else {
         const tokenAccounts = await this.connection.getParsedTokenAccountsByOwner(walletPublicKey, {
           mint: new PublicKey(quote.token.address),

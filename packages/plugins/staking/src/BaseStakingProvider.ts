@@ -561,7 +561,7 @@ export abstract class BaseStakingProvider implements IStakingProvider {
     };
   }
 
-  async buildClaimTransaction(uuid: bigint): Promise<Transaction> {
+  async buildClaimTransaction(uuid: string): Promise<Transaction> {
     return {
       to: '',
       data: '',

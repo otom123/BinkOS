@@ -30,6 +30,7 @@ const StateAnnotation = Annotation.Root({
   chat_history: Annotation<BaseMessage[]>,
   ask_question: Annotation<string>,
   ended_by: Annotation<string>,
+  thread_id: Annotation<string>,
 });
 
 export class PlannerGraph {
@@ -40,6 +41,7 @@ export class PlannerGraph {
   private listToolsPrompt: string;
   private agent: BaseAgent;
   private answerPrompt: string;
+  private _processedThreads: Set<string> = new Set();
   constructor({
     model,
     createPlanPrompt,
@@ -260,6 +262,18 @@ export class PlannerGraph {
   }
 
   shouldCreateOrUpdatePlan(state: typeof StateAnnotation.State): string {
+    let isNewThread = false;
+
+    if (state.thread_id && this._processedThreads) {
+      isNewThread = !this._processedThreads.has(state.thread_id);
+    }
+
+    // Track that we've processed this thread
+    if (isNewThread) {
+      this._processedThreads.add(state.thread_id);
+      return 'create_plan';
+    }
+
     // Check if no plans exist
     if (!state?.plans || state?.plans.length === 0) {
       return 'create_plan';
@@ -273,10 +287,9 @@ export class PlannerGraph {
     const wasEndedByPlanner = state.ended_by === 'planner_answer';
     const wasEndedByRejectTransaction = state.ended_by === 'reject_transaction';
 
-    return (
-      (isLastActivePlanCompleted && wasEndedByPlanner) || 
+    return (isLastActivePlanCompleted && wasEndedByPlanner) ||
       (isLastActivePlanRejected && wasEndedByRejectTransaction)
-    ) ? 'create_plan' 
+      ? 'create_plan'
       : 'update_plan';
   }
 

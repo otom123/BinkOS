@@ -31,9 +31,9 @@ export interface StakingResult extends StakingQuote {
 export interface StakingParams {
   network: NetworkName;
   tokenA: string;
-  tokenB: string;
+  tokenB?: string;
   amountA: string;
-  amountB: string;
+  amountB?: string;
   type: 'supply' | 'withdraw' | 'stake' | 'unstake' | 'deposit';
 }
 
@@ -167,5 +167,5 @@ export interface IStakingProvider {
    * Build a transaction for claiming a balance
    * @param uuid The UUID of the claimable balance
    */
-  buildClaimTransaction(uuid: bigint): Promise<Transaction>;
+  buildClaimTransaction(uuid: string): Promise<Transaction>;
 }

@@ -91,7 +91,6 @@ export abstract class BaseAgent implements IAgent {
   public notifyAskUser(data: AskUserData): void {
     this.callbackManager.notifyAskUser(data);
   }
-
   /**
    * Register a callback for tool execution events
    * @param callback The callback to register

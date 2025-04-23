@@ -50,6 +50,7 @@ const StateAnnotation = Annotation.Root({
   input: Annotation<string>,
   answer: Annotation<string>,
   ended_by: Annotation<string>,
+  thread_id: Annotation<string>,
 });
 
 export class PlanningAgent extends Agent {
@@ -57,7 +58,7 @@ export class PlanningAgent extends Agent {
   public graph!: CompiledStateGraph<any, any, any, any, any, any>;
   private _isAskUser = false;
   private askUserTimeout: NodeJS.Timeout | null = null;
-
+  private _processedThreads: Set<string> = new Set();
   constructor(config: AgentConfig, wallet: IWallet, networks: NetworksConfig['networks']) {
     super(config, wallet, networks);
   }
@@ -308,13 +309,41 @@ export class PlanningAgent extends Agent {
       };
     }
 
+    let isNewThread = false;
+    if (commandOrParams.threadId) {
+      isNewThread = !this._processedThreads.has(commandOrParams.threadId);
+      if (isNewThread) {
+        this._processedThreads.add(commandOrParams.threadId);
+      }
+    }
+
+    // Reset _isAskUser when set new thread
+    if (isNewThread) {
+      this._isAskUser = false;
+      // Cancel timer if it exists
+      if (this.askUserTimeout) {
+        clearTimeout(this.askUserTimeout);
+        this.askUserTimeout = null;
+      }
+    }
+
     if (this._isAskUser && typeof commandOrParams !== 'string') {
       let result = '';
       if (onStream) {
         const eventStream = await this.graph.streamEvents(
           commandOrParams.action
-            ? new Command({ resume: { action: commandOrParams.action } })
-            : new Command({ resume: { input: commandOrParams.input } }),
+            ? new Command({
+                resume: {
+                  action: commandOrParams.action,
+                  thread_id: commandOrParams.threadId,
+                },
+              })
+            : new Command({
+                resume: {
+                  input: commandOrParams.input,
+                  thread_id: commandOrParams.threadId,
+                },
+              }),
           {
             version: 'v2',
             configurable: {
@@ -394,7 +423,7 @@ export class PlanningAgent extends Agent {
     let response = '';
     if (onStream) {
       const eventStream = await this.graph.streamEvents(
-        { input, chat_history },
+        { input, chat_history, thread_id: commandOrParams.threadId },
         {
           version: 'v2',
           configurable: {
@@ -420,6 +449,7 @@ export class PlanningAgent extends Agent {
           {
             input,
             chat_history: history,
+            thread_id: commandOrParams.threadId,
           },
           {
             configurable: {

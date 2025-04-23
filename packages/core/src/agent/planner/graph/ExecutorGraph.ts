@@ -45,6 +45,7 @@ const StateAnnotation = Annotation.Root({
   ended_by: Annotation<string>,
   reject_transaction: Annotation<boolean>,
   answer: Annotation<string>,
+  thread_id: Annotation<string>,
 });
 
 export class ExecutorGraph {
@@ -52,6 +53,7 @@ export class ExecutorGraph {
   private executorPrompt: string;
   private tools: DynamicStructuredTool[];
   private agent: PlanningAgent;
+  private _processedThreads: Set<string> = new Set();
 
   private logToolExecution(
     toolName: string,
@@ -93,6 +95,10 @@ export class ExecutorGraph {
     // If no tools are called, we can finish (respond to the user)
     if (!lastMessage?.tool_calls?.length) {
       return 'end';
+    }
+
+    if (state.thread_id && !this._processedThreads.has(state.thread_id)) {
+      return 'executor_terminate';
     }
 
     if (lastMessage?.tool_calls?.length && lastMessage?.tool_calls[0]?.name === 'terminate') {
@@ -150,6 +156,10 @@ export class ExecutorGraph {
 
     const askTool = new AskTool();
     const wrappedAskTool = this.agent.addTool2CallbackManager(askTool);
+
+    if (state.thread_id && !this._processedThreads.has(state.thread_id)) {
+      this._processedThreads.add(state.thread_id);
+    }
 
     let modelWithTools;
     if (shouldBindTools(this.model, this.tools)) {
@@ -233,15 +243,18 @@ export class ExecutorGraph {
   async executorTerminateNode(state: typeof StateAnnotation.State) {
     if (state.reject_transaction) {
       const prompt = ChatPromptTemplate.fromMessages([
-        ['system', `The user has rejected the transaction. 
+        [
+          'system',
+          `The user has rejected the transaction. 
           Inform them that the previous plan and its execution have been deleted. 
           Let them know that their next input will create a new plan. 
           Provide a helpful response and short enough to be understood by the user.
-        `],
+        `,
+        ],
         ['human', `reason terminated: {reason}`],
         ['human', 'terminated plans: {plans}'],
       ]);
-  
+
       const response = await prompt
         .pipe(
           this.model.withConfig({
@@ -253,9 +266,9 @@ export class ExecutorGraph {
           plans: JSON.stringify(state.plans),
         });
 
-      return { 
+      return {
         chat_history: [response],
-        answer: response.content,  
+        answer: response.content,
         next_node: END,
         ended_by: 'reject_transaction',
       };
@@ -424,7 +437,6 @@ export class ExecutorGraph {
           });
           return new Command({ goto: 'executor_tools' });
         } else if (humanReview.action === 'reject') {
-          
           this.logToolExecution('review_transaction', 'completed', {
             status: 'rejected',
           });
@@ -432,11 +444,16 @@ export class ExecutorGraph {
 
           if (currentPlan) {
             currentPlan.status = 'rejected';
-            return new Command({ goto: 'executor_terminate', update: { plans: [currentPlan], reject_transaction: true } });
+            return new Command({
+              goto: 'executor_terminate',
+              update: { plans: [currentPlan], reject_transaction: true },
+            });
           } else {
-            return new Command({ goto: 'executor_terminate', update: { reject_transaction: true } });
+            return new Command({
+              goto: 'executor_terminate',
+              update: { reject_transaction: true },
+            });
           }
-
         } else if (humanReview.action === 'update') {
           if (!this.model.withStructuredOutput) {
             throw new Error('Model does not support structured output');

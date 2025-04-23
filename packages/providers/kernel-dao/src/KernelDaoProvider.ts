@@ -28,7 +28,7 @@ enum ChainId {
 export class KernelDaoProvider extends BaseStakingProvider {
   private chainId: ChainId;
   private factory: any;
-  protected GAS_BUFFER: bigint = ethers.parseEther('0.0001');
+  protected GAS_BUFFER: bigint = ethers.parseEther('0.0003');
 
   constructor(provider: Provider, chainId: ChainId = ChainId.BSC) {
     // Create a Map with BNB network and the provider
