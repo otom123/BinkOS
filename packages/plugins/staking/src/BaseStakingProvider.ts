@@ -188,7 +188,7 @@ export abstract class BaseStakingProvider implements IStakingProvider {
     // If amount is too small compared to gas buffer
     if (amountBN <= gasBuffer) {
       throw new Error(
-        `Amount too small. Minimum amount should be greater than ${ethers.formatEther(gasBuffer)} native token to cover gas`,
+        `Amount too small. Minimum amount should be greater than ${ethers.formatUnits(gasBuffer, decimals)} native token to cover gas`,
       );
     }
 
@@ -223,14 +223,14 @@ export abstract class BaseStakingProvider implements IStakingProvider {
       console.log(
         '🤖 Adjusted amount for gas buffer:',
         maxSpendable,
-        `(insufficient balance for full amount + ${ethers.formatEther(gasBuffer)} gas)`,
+        `(insufficient balance for full amount + ${ethers.formatUnits(gasBuffer, decimals)} gas)`,
       );
       return maxSpendable;
     } else {
       console.log(
         '🤖 Using full amount:',
         amount,
-        `(sufficient balance for amount + ${ethers.formatEther(gasBuffer)} gas)`,
+        `(sufficient balance for amount + ${ethers.formatUnits(gasBuffer, decimals)} gas)`,
       );
     }
 

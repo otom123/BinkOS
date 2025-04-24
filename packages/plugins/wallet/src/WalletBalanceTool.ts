@@ -257,7 +257,7 @@ export class GetWalletBalanceTool extends BaseTool {
               if (token?.symbol === 'BNB' || token?.symbol === 'ETH' || token?.symbol === 'SOL') {
                 return true;
               }
-              return Number(token?.balance) > 0.00001;
+              return Number(token?.usdValue) > 0.00001;
             });
           }
 

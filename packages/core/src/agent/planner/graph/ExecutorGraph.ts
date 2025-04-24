@@ -18,7 +18,7 @@ import { z } from 'zod';
 import { AskTool } from '../tools/AskTool';
 import { BaseAgent } from '../../BaseAgent';
 import { PlanningAgent } from '../PlanningAgent';
-import { update } from 'lodash';
+import { set } from 'lodash';
 
 const createToolCallId = () => {
   // random 5 characters
@@ -46,6 +46,7 @@ const StateAnnotation = Annotation.Root({
   reject_transaction: Annotation<boolean>,
   answer: Annotation<string>,
   thread_id: Annotation<string>,
+  interrupted_request: Annotation<string>,
 });
 
 export class ExecutorGraph {
@@ -242,36 +243,44 @@ export class ExecutorGraph {
 
   async executorTerminateNode(state: typeof StateAnnotation.State) {
     if (state.reject_transaction) {
-      const prompt = ChatPromptTemplate.fromMessages([
-        [
-          'system',
-          `The user has rejected the transaction. 
-          Inform them that the previous plan and its execution have been deleted. 
-          Let them know that their next input will create a new plan. 
-          Provide a helpful response and short enough to be understood by the user.
-        `,
-        ],
-        ['human', `reason terminated: {reason}`],
-        ['human', 'terminated plans: {plans}'],
-      ]);
+      if (state.ended_by === 'other_action') {
+        return {
+          next_node: END,
+          ended_by: state.ended_by,
+        };
+      } else {
+        const prompt = ChatPromptTemplate.fromMessages([
+          [
+            'system',
+            `The user has rejected the transaction. 
+            Inform them that the previous plan and its execution have been deleted. 
+            Let them know that their next input will create a new plan. 
+            Provide a helpful response and short enough to be understood by the user.`,
+          ],
+          ['human', `reason terminated: {reason}`],
+          ['human', 'terminated plans: {plans}'],
+        ]);
 
-      const response = await prompt
-        .pipe(
-          this.model.withConfig({
-            tags: ['final_node'],
-          }),
-        )
-        .invoke({
-          reason: state.messages[state.messages.length - 1]?.content ?? '',
-          plans: JSON.stringify(state.plans),
-        });
+        const reason = state.messages[state.messages.length - 1]?.content ?? '';
 
-      return {
-        chat_history: [response],
-        answer: response.content,
-        next_node: END,
-        ended_by: 'reject_transaction',
-      };
+        const response = await prompt
+          .pipe(
+            this.model.withConfig({
+              tags: ['final_node'],
+            }),
+          )
+          .invoke({
+            reason: reason,
+            plans: JSON.stringify(state.plans),
+          });
+
+        return {
+          chat_history: [response],
+          answer: response.content,
+          next_node: END,
+          ended_by: state.ended_by,
+        };
+      }
     } else {
       const lastMessage = state.messages[state.messages.length - 1] as AIMessage;
       return {
@@ -291,12 +300,6 @@ export class ExecutorGraph {
     const lastMessage = state.messages[state.messages.length - 1] as AIMessage;
     const toolCallId = lastMessage.tool_calls?.[0].id ?? createToolCallId();
     const question = lastMessage.tool_calls?.[0]?.args?.question ?? '';
-
-    // Log start with useful data
-    this.logToolExecution('ask_user', 'started', {
-      question,
-      toolCallId,
-    });
 
     // Set ask user state and use interrupt
     if (!this.agent.isAskUser) {
@@ -381,9 +384,10 @@ export class ExecutorGraph {
           if you want to update the transaction, please update the parameters and quote`,
           quote: quote,
         });
-        this.agent.setAskUser(false);
 
         if (humanReview.input) {
+          this.agent.setAskUser(false);
+
           //TODO: use model to detect if the human review is approve or reject
           if (!this.model.withStructuredOutput) {
             throw new Error('Model does not support structured output');
@@ -396,6 +400,7 @@ export class ExecutorGraph {
             1. APPROVE the transaction (proceed with execution)
             2. REJECT the transaction (cancel execution)
             3. UPDATE the transaction (update current transaction with user's modified parameters)
+            4. OTHER (other action from user)
 
             Based solely on the human's response, classify their intent into one of these three categories.
             Next is the human's response:
@@ -407,7 +412,7 @@ export class ExecutorGraph {
           // Then use withStructuredOutput without the problematic description parameter
           const modelWithStructure = this.model.withStructuredOutput(
             z.object({
-              action: z.enum(['approve', 'reject', 'update']),
+              action: z.enum(['approve', 'reject', 'update', 'other']),
             }),
           );
 
@@ -446,12 +451,16 @@ export class ExecutorGraph {
             currentPlan.status = 'rejected';
             return new Command({
               goto: 'executor_terminate',
-              update: { plans: [currentPlan], reject_transaction: true },
+              update: {
+                plans: [currentPlan],
+                reject_transaction: true,
+                ended_by: 'reject_transaction',
+              },
             });
           } else {
             return new Command({
               goto: 'executor_terminate',
-              update: { reject_transaction: true },
+              update: { reject_transaction: true, ended_by: 'reject_transaction' },
             });
           }
         } else if (humanReview.action === 'update') {
@@ -461,71 +470,81 @@ export class ExecutorGraph {
 
           const updateSchema = this.model.withStructuredOutput(
             z.object({
-              updates: z
-                .array(
-                  z.object({
-                    path: z
-                      .string()
-                      .describe('The path of the parameter to update in the quote object'),
-                    value: z.string().describe('The new value to set at this path'),
-                  }),
-                )
-                .describe('List of updates to apply to the quote'),
+              updates: z.array(
+                z.object({
+                  parameter: z
+                    .string()
+                    .describe('The path of the parameter to update in the quote object'),
+                  update_to: z.string().describe('The new value to set at this path'),
+                }),
+              ),
             }),
           );
 
-          // Create a system message with clear instructions
-          const extractPrompt = `
-            You are a helpful assistant that extracts structured information from user requests.
-            Based on the user's input and the current quote details, identify all parameters
-            they want to update in the quote. For each parameter:
-            1. Determine the exact path in the quote object
-            2. Extract the new value they want to set
-            
-            Return a list of updates with path and value for each change requested.
-          `;
-
-          const systemMessage = new SystemMessage(extractPrompt);
+          const originalArgs = toolCall.args;
 
           // Invoke with system message first, then the human message
           const response = await updateSchema.invoke([
-            systemMessage,
             new HumanMessage(
-              `I want to update the following in this quote: ${humanReview.input}
-              
-              Current quote: ${JSON.stringify(quote, null, 2)}
-              
-              Extract all the specific parameters I want to change and their new values.
-              DO NOT change the structure of the quote, only update the value of the parameters.`,
+              `Update current args based on the following request: ${humanReview.input}
+              Extract all the specific parameters user want to change and their new values.
+              Current args: ${JSON.stringify(originalArgs, null, 2)}
+              `,
             ),
           ]);
 
-          const updatedQuote = { ...quote }; // Create a copy to avoid mutating the original
+          const updatedArgs = JSON.parse(JSON.stringify(originalArgs));
+          for (const updateItem of response.updates) {
+            set(updatedArgs, updateItem.parameter, updateItem.update_to);
+          }
 
-          // Apply each update in the response array
-          response.updates.forEach(updateItem => {
-            update(updatedQuote, updateItem.path, function () {
-              return updateItem.value;
-            });
-          });
-
-          const updateMessage = new ToolMessage({
+          const toolMessage = new ToolMessage({
             name: toolCall.name,
-            content: `updated quote: ${JSON.stringify(updatedQuote, null, 2)}
-            Updated parameters: 
-            ${response.updates.map(updateItem => `- ${updateItem.path} = ${updateItem.value}`).join('\n            ')}`,
+            content: `Parameters updated: ${JSON.stringify(updatedArgs, null, 2)}`,
             tool_call_id: toolCall.id ?? createToolCallId(),
           });
+
           this.logToolExecution('review_transaction', 'completed', {
             status: 'updated',
           });
-          return new Command({ goto: 'executor_agent', update: { messages: [updateMessage] } });
+          return new Command({
+            goto: 'executor_agent',
+            update: {
+              executor_input: `${toolCall.name} with args: ${JSON.stringify(updatedArgs, null, 2)}`,
+              messages: [toolMessage],
+            },
+          });
+        } else if (humanReview.action === 'other') {
+          const currentPlan = state.plans.find(p => p.plan_id === state.active_plan_id);
+
+          if (currentPlan) {
+            currentPlan.status = 'rejected';
+            return new Command({
+              goto: 'executor_terminate',
+              update: {
+                plans: [currentPlan],
+                reject_transaction: true,
+                ended_by: 'other_action',
+                interrupted_request: humanReview.input,
+              },
+            });
+          }
+          return new Command({
+            goto: 'executor_terminate',
+            update: {
+              reject_transaction: true,
+              ended_by: 'other_action',
+              interrupted_request: humanReview.input,
+            },
+          });
         }
+
+        this.logToolExecution('review_transaction', 'completed', {
+          status: 'No simulateQuoteTool found',
+        });
+
+        return new Command({ goto: 'executor_tools' });
       }
-      this.logToolExecution('review_transaction', 'completed', {
-        status: 'No simulateQuoteTool found',
-      });
-      return new Command({ goto: 'executor_tools' });
     }
   }
 

@@ -48,9 +48,9 @@ export abstract class BaseSwapProvider implements ISwapProvider {
     [NetworkName.ARBITRUM]: ethers.parseEther('0.001'), // 0.001 ETH
     [NetworkName.OPTIMISM]: ethers.parseEther('0.001'), // 0.001 ETH
     [NetworkName.BNB]: ethers.parseEther('0.0001'), // 0.001 BNB
-    [NetworkName.SOLANA]: BigInt(10000000), // 0.001 SOL in lamports
+    [NetworkName.SOLANA]: BigInt(1000000), // 0.001 SOL in lamports
     [NetworkName.SEPOLIA]: ethers.parseEther('0.001'), // 0.001 ETH
-    [NetworkName.SOLANA_DEVNET]: BigInt(10000000), // 0.001 SOL in lamports
+    [NetworkName.SOLANA_DEVNET]: BigInt(1000000), // 0.001 SOL in lamports
   };
 
   constructor(providerConfig: Map<NetworkName, NetworkProvider>) {
@@ -196,6 +196,11 @@ export abstract class BaseSwapProvider implements ISwapProvider {
       balance = await provider.getBalance(walletAddress);
     }
 
+    //convert if type of balance is number
+    if (typeof balance === 'number') {
+      balance = BigInt(balance);
+    }
+
     const gasBuffer = this.getGasBuffer(network);
 
     // Check if user has enough balance for amount + gas buffer
@@ -203,7 +208,7 @@ export abstract class BaseSwapProvider implements ISwapProvider {
       // If not enough balance for both, ensure at least gas buffer is available
       if (amountBN <= gasBuffer) {
         throw new Error(
-          `Amount too small. Minimum amount should be greater than ${ethers.formatEther(gasBuffer)} native token to cover gas`,
+          `Amount too small. Minimum amount should be greater than ${ethers.formatUnits(gasBuffer, decimals)} native token to cover gas`,
         );
       }
       // Subtract gas buffer from amount
@@ -211,8 +216,8 @@ export abstract class BaseSwapProvider implements ISwapProvider {
       const adjustedAmount = ethers.formatUnits(adjustedAmountBN, decimals);
       console.log(
         '🤖 Adjusted amount for gas buffer:',
-        adjustedAmount,
-        `(insufficient balance for full amount + ${ethers.formatEther(gasBuffer)} gas)`,
+        `${ethers.formatUnits(amountBN, decimals)}`,
+        `(insufficient balance for full amount + ${ethers.formatUnits(gasBuffer, decimals)} gas)`,
       );
       return adjustedAmount;
     }
@@ -220,7 +225,7 @@ export abstract class BaseSwapProvider implements ISwapProvider {
     console.log(
       '🤖 Using full amount:',
       amount,
-      `(sufficient balance for amount + ${ethers.formatEther(gasBuffer)} gas)`,
+      `(sufficient balance for amount + ${ethers.formatUnits(gasBuffer, decimals)} gas)`,
     );
     return amount;
   }

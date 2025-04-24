@@ -31,6 +31,7 @@ const StateAnnotation = Annotation.Root({
   ask_question: Annotation<string>,
   ended_by: Annotation<string>,
   thread_id: Annotation<string>,
+  interrupted_request: Annotation<string>,
 });
 
 export class PlannerGraph {
@@ -262,35 +263,33 @@ export class PlannerGraph {
   }
 
   shouldCreateOrUpdatePlan(state: typeof StateAnnotation.State): string {
-    let isNewThread = false;
-
-    if (state.thread_id && this._processedThreads) {
-      isNewThread = !this._processedThreads.has(state.thread_id);
-    }
-
-    // Track that we've processed this thread
-    if (isNewThread) {
+    // Check for new thread first
+    if (state.thread_id && this._processedThreads && !this._processedThreads.has(state.thread_id)) {
       this._processedThreads.add(state.thread_id);
       return 'create_plan';
     }
 
     // Check if no plans exist
-    if (!state?.plans || state?.plans.length === 0) {
+    if (!state?.plans?.length) {
       return 'create_plan';
     }
 
-    // Check if active plan is complete
-    const activePlan = state.plans?.find(plan => plan.plan_id === state.active_plan_id);
-    const isLastActivePlanCompleted = activePlan?.status === 'completed';
-    const isLastActivePlanRejected = activePlan?.status === 'rejected';
+    // Check if active plan is complete or rejected
+    const activePlan = state.plans.find(plan => plan.plan_id === state.active_plan_id);
 
-    const wasEndedByPlanner = state.ended_by === 'planner_answer';
-    const wasEndedByRejectTransaction = state.ended_by === 'reject_transaction';
+    // Create new plan if:
+    // 1. Completed plan ended by planner_answer OR
+    // 2. Rejected plan ended by reject_transaction
+    if (
+      (activePlan?.status === 'completed' && state.ended_by === 'planner_answer') ||
+      (activePlan?.status === 'rejected' && state.ended_by === 'reject_transaction') ||
+      (activePlan?.status === 'rejected' && state.ended_by === 'other_action')
+    ) {
+      return 'create_plan';
+    }
 
-    return (isLastActivePlanCompleted && wasEndedByPlanner) ||
-      (isLastActivePlanRejected && wasEndedByRejectTransaction)
-      ? 'create_plan'
-      : 'update_plan';
+    // Default to update_plan for all other cases
+    return 'update_plan';
   }
 
   async answerNode(state: typeof StateAnnotation.State) {

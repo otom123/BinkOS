@@ -30,6 +30,9 @@ const StateAnnotation = Annotation.Root({
     }[]
   >,
   answer: Annotation<string>,
+  active_plan_id: Annotation<string>,
+  ended_by: Annotation<string>,
+  interrupted_request: Annotation<string>,
 });
 
 export class BasicQuestionGraph {
@@ -58,19 +61,18 @@ export class BasicQuestionGraph {
     if (!lastMessage?.tool_calls?.length) {
       return END;
     }
+
+    if (state.ended_by === 'basic_question') {
+      return END;
+    }
     // Otherwise if there are tool calls, we continue to execute them
     return 'tools';
   }
 
   async agentNode(state: typeof StateAnnotation.State) {
-    const prompt = ChatPromptTemplate.fromMessages([
-      ['system', this.prompt],
-      new MessagesPlaceholder('chat_history'),
-      ['human', '{input}'],
-      new MessagesPlaceholder('messages'),
-    ]);
-
     let modelWithTools;
+    let input;
+
     if (shouldBindTools(this.model, this.tools)) {
       if (!('bindTools' in this.model) || typeof this.model.bindTools !== 'function') {
         throw new Error(`llm ${this.model} must define bindTools method.`);
@@ -82,6 +84,15 @@ export class BasicQuestionGraph {
       modelWithTools = this.model;
     }
 
+    const prompt = ChatPromptTemplate.fromMessages([
+      ['system', this.prompt],
+      new MessagesPlaceholder('chat_history'),
+      ['human', '{input}'],
+      new MessagesPlaceholder('messages'),
+    ]);
+
+    input = state.interrupted_request || state.input;
+
     const agent = prompt.pipe(
       modelWithTools.withConfig({
         tags: ['final_node'],
@@ -89,15 +100,19 @@ export class BasicQuestionGraph {
     );
 
     const responseMessage = await agent.invoke({
-      input: state.input,
+      input: input,
       messages: [...(state.messages ?? [])],
       chat_history: [...(state.chat_history ?? [])],
     });
 
     if (responseMessage.tool_calls?.length) {
-      return { messages: [responseMessage] };
+      return {
+        messages: [responseMessage],
+      };
     } else {
-      return { messages: [responseMessage], answer: responseMessage.content };
+      return {
+        answer: responseMessage.content,
+      };
     }
   }
 

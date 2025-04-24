@@ -223,8 +223,8 @@ export abstract class BaseBridgeProvider implements IBridgeProvider {
       const adjustedAmount = ethers.formatUnits(adjustedAmountBN, decimals);
       console.log(
         '🤖 Adjusted amount for gas buffer:',
-        adjustedAmount,
-        `(insufficient balance for full amount + ${ethers.formatEther(gasBuffer)} gas)`,
+        `${ethers.formatUnits(amountBN, decimals)}`,
+        `(insufficient balance for full amount + ${ethers.formatUnits(gasBuffer, decimals)} gas)`,
       );
       return adjustedAmount;
     }
@@ -232,7 +232,7 @@ export abstract class BaseBridgeProvider implements IBridgeProvider {
     console.log(
       '🤖 Using full amount:',
       amount,
-      `(sufficient balance for amount + ${ethers.formatEther(gasBuffer)} gas)`,
+      `(sufficient balance for amount + ${ethers.formatUnits(gasBuffer, decimals)} gas)`,
     );
     return amount;
   }

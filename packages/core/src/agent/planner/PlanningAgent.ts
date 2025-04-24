@@ -51,6 +51,7 @@ const StateAnnotation = Annotation.Root({
   answer: Annotation<string>,
   ended_by: Annotation<string>,
   thread_id: Annotation<string>,
+  interrupted_request: Annotation<string>,
 });
 
 export class PlanningAgent extends Agent {
@@ -133,8 +134,10 @@ export class PlanningAgent extends Agent {
 
     const planAgent = prompt.pipe(modelWithTools);
 
+    const input = state.interrupted_request || state.input;
+
     const response = (await planAgent.invoke({
-      input: state.input,
+      input: input,
     })) as any;
 
     if (response?.tool_calls) {
@@ -179,10 +182,10 @@ export class PlanningAgent extends Agent {
       
       Following tips trading:
 
-        + Sell/Swap X/X% A to B on network X (amount = X/calculate X% of current balance, amountType = input).
-        + Swap/Buy X/X% A from B on network X (amount = X/calculate X% of current balance, amountType = ouput).
+        + Sell/Swap X/X% A to B on network Y (amount = X/calculate X% of current balance, amountType = input).
+        + Swap/Buy X/X% A from B on network Y (amount = X/calculate X% of current balance, amountType = ouput).
 
-      If you can't retrieve or reasoning A/B/X in user's request, ask user to provide more information.
+      If you can't retrieve or reasoning A/B/X/Y in user's request, ask user to provide more information.
       `;
 
     const updatePlanPrompt = `You are a blockchain planner. Your goal is to update the current plans based on the active plan and selected tasks. 
@@ -277,13 +280,17 @@ export class PlanningAgent extends Agent {
         state => {
           const activePlan = state.plans?.find(plan => plan.plan_id === state.active_plan_id);
           const isLastActivePlanRejected = activePlan?.status === 'rejected';
-          if (state.ended_by === 'reject_transaction' && isLastActivePlanRejected) {
+
+          if (state.ended_by === 'other_action') {
+            return 'supervisor';
+          } else if (state.ended_by === 'reject_transaction' && isLastActivePlanRejected) {
             return END;
           } else {
             return 'planner';
           }
         },
         {
+          supervisor: 'supervisor',
           planner: 'planner',
           __end__: END,
         },
