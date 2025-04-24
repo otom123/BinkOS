@@ -328,133 +328,147 @@ export class Wallet implements IWallet {
   ): Promise<TransactionReceipt> {
     const networkType = this.#network.getNetworkType(network);
     const networkConfig = this.#network.getConfig(network);
+    console.log('🚀 ~ Wallet ~ signAndSendTransaction ~ networkConfig OKOK:', transaction);
 
-    if (networkType === 'evm') {
-      const provider = this.#network.getProvider(network, 'evm');
-      const signer = this.#evmWallet.connect(provider);
-
-      // Create and sign transaction
-      const tx = await signer.populateTransaction({
-        to: transaction.to,
-        data: transaction.data,
-        value: transaction.value,
-        gasLimit: transaction.gasLimit,
-      });
-      const signedTx = await signer.signTransaction(tx);
-
-      // Send signed transaction
-      const sentTx = await provider.broadcastTransaction(signedTx);
-      const receipt = await sentTx.wait();
-      if (!receipt) throw new Error('Transaction failed');
-
-      return {
-        hash: sentTx.hash,
-        wait: async () => {
-          const finalReceipt = await sentTx.wait();
-          if (!finalReceipt) throw new Error('Transaction failed');
-          return {
-            hash: finalReceipt.hash,
-            wait: async () => ({
-              hash: finalReceipt.hash,
-              wait: async () => {
-                throw new Error('Already waited');
-              },
-            }),
-          };
-        },
-      };
-    } else {
-      const connection = new Connection(networkConfig.config.rpcUrl);
-      let isVersionedTransaction = false;
-      // Try to parse as VersionedTransaction first
-      try {
-        let tx = VersionedTransaction.deserialize(Buffer.from(transaction.data, 'base64'));
-        isVersionedTransaction = true;
-        let lastValidBlockHeight = transaction.lastValidBlockHeight;
-        if (!tx.message.recentBlockhash) {
-          const latestBlockhash = await connection.getLatestBlockhash('finalized');
-          tx.message.recentBlockhash = latestBlockhash.blockhash;
-          lastValidBlockHeight = latestBlockhash.lastValidBlockHeight;
-        }
-
-        if (!lastValidBlockHeight) {
-          throw new Error('Last valid block height is required');
-        }
-
-        // Sign transaction
-        tx.sign([this.#solanaKeypair]);
-
-        // Send raw transaction
-        const rawTransaction = Buffer.from(tx.serialize());
-        const signature = await connection.sendRawTransaction(rawTransaction, {
-          skipPreflight: true,
-          preflightCommitment: 'confirmed',
-        });
-
-        return {
-          hash: signature,
+    return {
+      hash: '0x123FAKE',
+      wait: async () => ({
+        hash: '0x123FAKE',
+        wait: async () => ({
+          hash: '0x123FAKE',
           wait: async () => {
-            await this.waitForSolanaTransaction(
-              connection,
-              signature,
-              tx.message.recentBlockhash,
-              lastValidBlockHeight + 5, // fix waiting transaction for 5 blocks
-            );
-            return {
-              hash: signature,
-              wait: async () => ({
-                hash: signature,
-                wait: async () => {
-                  throw new Error('Already waited');
-                },
-              }),
-            };
+            throw new Error('Already waited');
           },
-        };
-      } catch (e) {
-        console.log('🚀 ~ Wallet ~ signAndSendTransactionSolana ~ error:', e);
-        if (isVersionedTransaction) {
-          throw e;
-        }
+        }),
+      }),
+    };
 
-        // If not a VersionedTransaction, try as regular Transaction
-        const tx = SolanaTransaction.from(Buffer.from(transaction.data, 'base64'));
-        if (!tx.recentBlockhash) {
-          const latestBlockhash = await connection.getLatestBlockhash('finalized');
-          tx.recentBlockhash = latestBlockhash.blockhash;
-          tx.lastValidBlockHeight = latestBlockhash.lastValidBlockHeight;
-        }
-        // Sign transaction
-        tx.sign(this.#solanaKeypair);
+    // if (networkType === 'evm') {
+    //   const provider = this.#network.getProvider(network, 'evm');
+    //   const signer = this.#evmWallet.connect(provider);
 
-        // Send raw transaction
-        const rawTransaction = tx.serialize();
-        const signature = await connection.sendRawTransaction(rawTransaction, {
-          skipPreflight: false,
-          preflightCommitment: 'confirmed',
-        });
+    //   // Create and sign transaction
+    //   const tx = await signer.populateTransaction({
+    //     to: transaction.to,
+    //     data: transaction.data,
+    //     value: transaction.value,
+    //     gasLimit: transaction.gasLimit,
+    //   });
+    //   const signedTx = await signer.signTransaction(tx);
 
-        return {
-          hash: signature,
-          wait: async () => {
-            await this.waitForSolanaTransaction(
-              connection,
-              signature,
-              tx.recentBlockhash!,
-              tx.lastValidBlockHeight! + 5,
-            );
-            return {
-              hash: signature,
-              wait: async () => ({
-                hash: signature,
-                wait: async () => {
-                  throw new Error('Already waited');
-                },
-              }),
-            };
-          },
-        };
-      }
-    }
+    //   // Send signed transaction
+    //   const sentTx = await provider.broadcastTransaction(signedTx);
+    //   const receipt = await sentTx.wait();
+    //   if (!receipt) throw new Error('Transaction failed');
+
+    //   return {
+    //     hash: sentTx.hash,
+    //     wait: async () => {
+    //       const finalReceipt = await sentTx.wait();
+    //       if (!finalReceipt) throw new Error('Transaction failed');
+    //       return {
+    //         hash: finalReceipt.hash,
+    //         wait: async () => ({
+    //           hash: finalReceipt.hash,
+    //           wait: async () => {
+    //             throw new Error('Already waited');
+    //           },
+    //         }),
+    //       };
+    //     },
+    //   };
+    // } else {
+    //   const connection = new Connection(networkConfig.config.rpcUrl);
+    //   let isVersionedTransaction = false;
+    //   // Try to parse as VersionedTransaction first
+    //   try {
+    //     let tx = VersionedTransaction.deserialize(Buffer.from(transaction.data, 'base64'));
+    //     isVersionedTransaction = true;
+    //     let lastValidBlockHeight = transaction.lastValidBlockHeight;
+    //     if (!tx.message.recentBlockhash) {
+    //       const latestBlockhash = await connection.getLatestBlockhash('finalized');
+    //       tx.message.recentBlockhash = latestBlockhash.blockhash;
+    //       lastValidBlockHeight = latestBlockhash.lastValidBlockHeight;
+    //     }
+
+    //     if (!lastValidBlockHeight) {
+    //       throw new Error('Last valid block height is required');
+    //     }
+
+    //     // Sign transaction
+    //     tx.sign([this.#solanaKeypair]);
+
+    //     // Send raw transaction
+    //     const rawTransaction = Buffer.from(tx.serialize());
+    //     const signature = await connection.sendRawTransaction(rawTransaction, {
+    //       skipPreflight: true,
+    //       preflightCommitment: 'confirmed',
+    //     });
+
+    //     return {
+    //       hash: signature,
+    //       wait: async () => {
+    //         await this.waitForSolanaTransaction(
+    //           connection,
+    //           signature,
+    //           tx.message.recentBlockhash,
+    //           lastValidBlockHeight + 5, // fix waiting transaction for 5 blocks
+    //         );
+    //         return {
+    //           hash: signature,
+    //           wait: async () => ({
+    //             hash: signature,
+    //             wait: async () => {
+    //               throw new Error('Already waited');
+    //             },
+    //           }),
+    //         };
+    //       },
+    //     };
+    //   } catch (e) {
+    //     console.log('🚀 ~ Wallet ~ signAndSendTransactionSolana ~ error:', e);
+    //     if (isVersionedTransaction) {
+    //       throw e;
+    //     }
+
+    //     // If not a VersionedTransaction, try as regular Transaction
+    //     const tx = SolanaTransaction.from(Buffer.from(transaction.data, 'base64'));
+    //     if (!tx.recentBlockhash) {
+    //       const latestBlockhash = await connection.getLatestBlockhash('finalized');
+    //       tx.recentBlockhash = latestBlockhash.blockhash;
+    //       tx.lastValidBlockHeight = latestBlockhash.lastValidBlockHeight;
+    //     }
+    //     // Sign transaction
+    //     tx.sign(this.#solanaKeypair);
+
+    //     // Send raw transaction
+    //     const rawTransaction = tx.serialize();
+    //     const signature = await connection.sendRawTransaction(rawTransaction, {
+    //       skipPreflight: false,
+    //       preflightCommitment: 'confirmed',
+    //     });
+
+    //     return {
+    //       hash: signature,
+    //       wait: async () => {
+    //         await this.waitForSolanaTransaction(
+    //           connection,
+    //           signature,
+    //           tx.recentBlockhash!,
+    //           tx.lastValidBlockHeight! + 5,
+    //         );
+    //         return {
+    //           hash: signature,
+    //           wait: async () => ({
+    //             hash: signature,
+    //             wait: async () => {
+    //               throw new Error('Already waited');
+    //             },
+    //           }),
+    //         };
+    //       },
+    //     };
+    //   }
+    // }
   }
 }
