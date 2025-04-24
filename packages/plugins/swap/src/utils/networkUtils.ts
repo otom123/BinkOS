@@ -27,7 +27,7 @@ export function isProviderInstance(provider: NetworkProvider): provider is Provi
  * @returns True if the provider is a Solana provider, false otherwise
  */
 export function isSolanaProvider(provider: NetworkProvider): provider is Connection {
-  return provider instanceof Connection;
+  return 'getAccountInfo' in provider && 'getEpochInfo' in provider;
 }
 
 /**

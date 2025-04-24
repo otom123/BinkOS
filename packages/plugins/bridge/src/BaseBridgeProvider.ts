@@ -63,7 +63,7 @@ export abstract class BaseBridgeProvider implements IBridgeProvider {
   }
 
   protected isSolanaProvider(provider: NetworkProvider): provider is Connection {
-    return provider instanceof Connection;
+    return 'getAccountInfo' in provider && 'getEpochInfo' in provider;
   }
 
   /**
