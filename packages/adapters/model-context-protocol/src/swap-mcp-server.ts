@@ -13,21 +13,7 @@ import {
   Network,
   settings,
 } from '@binkai/core';
-
-export interface SwapMcpServerOptions {
-  name: string;
-  version: string;
-  data: {
-    rpcUrl: string;
-    fromToken: string;
-    toToken: string;
-    amount: string;
-    amountType: string;
-    network: string;
-    provider: string;
-    slippage: number;
-  };
-}
+import { SwapMcpServerOptions } from './types';
 
 export async function createSwapMcpServer(server: Server, options: SwapMcpServerOptions) {
   try {
